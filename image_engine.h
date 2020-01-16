@@ -6,7 +6,6 @@
 
 #include <QImage>
 #include <QString>
-#include <QTimer>
 #include <QThread>
 #include <QPixmap>
 #include <QMutex>
@@ -25,8 +24,8 @@ private:
     size_t _interval_ms = 2000;
     ImageOperations::mirror_mode _mirror_mode = ImageOperations::nothing;
 
-    QTimer _timer;
     bool _stop = false;
+    bool _wait = false;
     bool _pause = false;
     bool _continue = true;
     QMutex _mutex;
@@ -44,10 +43,6 @@ signals:
     void si_curImage(const QPixmap &);
     void si_paused(bool);
     void si_statusMsg(QString);
-
-private slots:
-    // called by a timer to iterate over the images without locking
-    void sl_newCycle();
 
 public slots:
     //! starts the thread loop

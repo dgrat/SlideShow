@@ -1,37 +1,14 @@
 #pragma once
 
 #include <QMainWindow>
-
-class QDockWidget;
-class QPushButton;
-class QComboBox;
-class QScrollArea;
-class QLabel;
-class QSpinBox;
-class ImageEngine;
+#include <QString>
+#include <QPixmap>
+#include <memory>
 
 
 class ImageView : public QMainWindow
 {
     Q_OBJECT
-
-// when the list becomes too long one should create a pimpl ..
-private /*variables*/:
-    /*mainview*/
-    QLabel *_imageLabel = nullptr;
-    QScrollArea *_scrollArea = nullptr;
-
-    size_t _interval_ms = 2000;
-    QString _curDir = "";
-
-    /*settings*/
-    QDockWidget *_dockSettings = nullptr;
-    QPushButton *_butSearchDir = nullptr;
-    QPushButton *_butStartStop = nullptr;
-    QComboBox *_imageManipulation = nullptr;
-    QSpinBox *_timeInterval;
-
-    ImageEngine *_imgEngine = nullptr;
 
 private /*functions*/:
     void prepareImageView();
@@ -58,5 +35,9 @@ protected:
 
 public:
     ImageView(QWidget *parent = nullptr);
-    ~ImageView();
+    ~ImageView() override;
+
+private:
+    class Impl;
+    std::unique_ptr<Impl> d;
 };

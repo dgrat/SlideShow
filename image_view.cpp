@@ -16,10 +16,34 @@
 #include <QLabel>
 #include <QKeyEvent>
 #include <QMessageBox>
+#include <QPixmap>
+
+
+class ImageView::Impl {
+public:
+    /*mainview*/
+    QLabel *_imageLabel = nullptr;
+    QScrollArea *_scrollArea = nullptr;
+
+    /*docker*/
+    QDockWidget *_dockSettings = nullptr;
+    QPushButton *_butSearchDir = nullptr;
+    QPushButton *_butStartStop = nullptr;
+    QComboBox *_imageManipulation = nullptr;
+    QSpinBox *_timeInterval;
+
+    /*thread*/
+    ImageEngine *_imgEngine = nullptr;
+
+    /*settings*/
+    size_t _interval_ms = 2000;
+    QString _curDir = "";
+};
 
 
 ImageView::ImageView(QWidget *parent)
     : QMainWindow(parent)
+    , d(new Impl)
 {
     this->setWindowTitle(getApp()->appName());
     this->setStatusBar(new QStatusBar(this));
@@ -27,53 +51,51 @@ ImageView::ImageView(QWidget *parent)
 
     prepareImageView();
     prepareDockSettings();
-
     connectDockSettings();
 }
 
 void ImageView::prepareImageView() {
-    _imageLabel = new QLabel(this);
-    _imageLabel->setBackgroundRole(QPalette::Base);
-    _imageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
-    _imageLabel->setScaledContents(true);
+    d->_imageLabel = new QLabel(this);
+    d->_imageLabel->setBackgroundRole(QPalette::Base);
+    d->_imageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+    d->_imageLabel->setScaledContents(true);
 
-    _scrollArea = new QScrollArea(this);
-    _scrollArea->setBackgroundRole(QPalette::Dark);
-    _scrollArea->setWidget(_imageLabel);
-    _scrollArea->setWidgetResizable(true);
-    setCentralWidget(_scrollArea);
+    d->_scrollArea = new QScrollArea(this);
+    d->_scrollArea->setBackgroundRole(QPalette::Dark);
+    d->_scrollArea->setWidget(d->_imageLabel);
+    d->_scrollArea->setWidgetResizable(true);
+    setCentralWidget(d->_scrollArea);
 
     this->statusBar()->showMessage("Choose directory", -1);
 }
 
 void ImageView::sl_createImgEngine() {
-    if(_curDir.isEmpty()) {
+    if(d->_curDir.isEmpty()) {
         this->statusBar()->showMessage("Cannot start with undefined directory");
         return;
     }
 
     // create thread once and then just pause/continue
-    if(_imgEngine == nullptr) {
-        _imgEngine = new ImageEngine(_curDir, _interval_ms, this);
+    if(d->_imgEngine == nullptr) {
+        d->_imgEngine = new ImageEngine(d->_curDir, d->_interval_ms, this);
 
-        disconnect(_butStartStop, &QPushButton::pressed, this, &ImageView::sl_createImgEngine);
+        disconnect(d->_butStartStop, &QPushButton::pressed, this, &ImageView::sl_createImgEngine);
 
-        connect(_butStartStop, &QPushButton::pressed, _imgEngine, &ImageEngine::sl_toggle);
-        connect(_imageManipulation, QOverload<int>::of(&QComboBox::activated), _imgEngine, &ImageEngine::sl_setMode);
-        connect(_timeInterval, QOverload<int>::of(&QSpinBox::valueChanged), _imgEngine, &ImageEngine::sl_setTime);
+        connect(d->_butStartStop, &QPushButton::pressed, d->_imgEngine, &ImageEngine::sl_toggle);
+        connect(d->_imageManipulation, QOverload<int>::of(&QComboBox::activated), d->_imgEngine, &ImageEngine::sl_setMode);
+        connect(d->_timeInterval, QOverload<int>::of(&QSpinBox::valueChanged), d->_imgEngine, &ImageEngine::sl_setTime);
 
-        connect(_imgEngine, &ImageEngine::finished, this, &ImageView::deleteLater);
-        connect(_imgEngine, &ImageEngine::si_statusMsg, this, &ImageView::sl_printStatusMsg);
-        connect(_imgEngine, &ImageEngine::si_paused, this, &ImageView::sl_renameStartStopButton);
-        connect(_imgEngine, &ImageEngine::si_curImage, this, &ImageView::sl_show);
-        connect(_imgEngine, &ImageEngine::si_curImageName, this->statusBar(), [=](QString name){
+        connect(d->_imgEngine, &ImageEngine::finished, this, &ImageView::deleteLater);
+        connect(d->_imgEngine, &ImageEngine::si_statusMsg, this, &ImageView::sl_printStatusMsg);
+        connect(d->_imgEngine, &ImageEngine::si_paused, this, &ImageView::sl_renameStartStopButton);
+        connect(d->_imgEngine, &ImageEngine::si_curImage, this, &ImageView::sl_show);
+        connect(d->_imgEngine, &ImageEngine::si_curImageName, this->statusBar(), [=](QString name){
             this->statusBar()->showMessage("Current Image: " + name);
         });
 
-        _imageManipulation->setEnabled(true);
-        _timeInterval->setEnabled(true);
-
-        _imgEngine->start();
+        d->_imageManipulation->setEnabled(true);
+        d->_timeInterval->setEnabled(true);
+        d->_imgEngine->start();
     }
 }
 
@@ -83,10 +105,10 @@ void ImageView::sl_printStatusMsg(QString msg) {
 
 void ImageView::sl_renameStartStopButton(bool engine_paused) {
     if(engine_paused) {
-        _butStartStop->setText("Continue");
+        d->_butStartStop->setText("Continue");
     }
     else {
-        _butStartStop->setText("Pause");
+        d->_butStartStop->setText("Pause");
     }
 }
 
@@ -94,21 +116,21 @@ ImageView::~ImageView() {
 }
 
 void ImageView::sl_show(const QPixmap &img) {
-    _imageLabel->setPixmap(img);
+    d->_imageLabel->setPixmap(img);
 }
 
 void ImageView::sl_selSearchDir() {
     const QString homeDir = QStandardPaths::locate(QStandardPaths::HomeLocation, QString(), QStandardPaths::LocateDirectory);
-    _curDir = QFileDialog::getExistingDirectory(this, "Select Search Directory", homeDir, QFileDialog::DontResolveSymlinks); // QT bug ShowDirsOnly always on behavior
+    d->_curDir = QFileDialog::getExistingDirectory(this, "Select Search Directory", homeDir, QFileDialog::DontResolveSymlinks); // QT bug ShowDirsOnly always on behavior
 
-    if(_imgEngine) {
-        _imgEngine->sl_setSearchDirectory(_curDir);
+    if(d->_imgEngine) {
+        d->_imgEngine->sl_setSearchDirectory(d->_curDir);
     }
 }
 
 void ImageView::connectDockSettings() {
-    connect(_butStartStop, &QPushButton::pressed, this, &ImageView::sl_createImgEngine);
-    connect(_butSearchDir, &QPushButton::pressed, this, &ImageView::sl_selSearchDir);
+    connect(d->_butStartStop, &QPushButton::pressed, this, &ImageView::sl_createImgEngine);
+    connect(d->_butSearchDir, &QPushButton::pressed, this, &ImageView::sl_selSearchDir);
 }
 
 void ImageView::keyPressEvent( QKeyEvent * event ) {
@@ -118,34 +140,34 @@ void ImageView::keyPressEvent( QKeyEvent * event ) {
 }
 
 void ImageView::prepareDockSettings() {
-    _dockSettings = new QDockWidget("Settings", this);
-    _dockSettings->setFeatures(QDockWidget::DockWidgetMovable);
+    d->_dockSettings = new QDockWidget("Settings", this);
+    d->_dockSettings->setFeatures(QDockWidget::DockWidgetMovable);
 
     QWidget *settings_widget = new QWidget(this);
 
-    _butSearchDir = new QPushButton("Define Image Folder", this);
-    _butStartStop = new QPushButton("Start", this);
-    _imageManipulation = new QComboBox(this);
-    _imageManipulation->setEnabled(false);
-    _timeInterval = new QSpinBox(this);
-    _timeInterval->setRange(100, 10000);
-    _timeInterval->setValue(2000);
-    _timeInterval->setEnabled(false);
+    d->_butSearchDir = new QPushButton("Define Image Folder", this);
+    d->_butStartStop = new QPushButton("Start", this);
+    d->_imageManipulation = new QComboBox(this);
+    d->_imageManipulation->setEnabled(false);
+    d->_timeInterval = new QSpinBox(this);
+    d->_timeInterval->setRange(100, 10000);
+    d->_timeInterval->setValue(2000);
+    d->_timeInterval->setEnabled(false);
     // add labels
     for(auto e : ImageOperations::getMirrorModes()) {
-        _imageManipulation->insertItem(e.first, e.second);
+        d->_imageManipulation->insertItem(e.first, e.second);
     }
 
     QVBoxLayout *layout = new QVBoxLayout;
-    layout->addWidget(_butSearchDir);
-    layout->addWidget(_butStartStop);
+    layout->addWidget(d->_butSearchDir);
+    layout->addWidget(d->_butStartStop);
     layout->addWidget(new QLabel("Mirror Mode", this));
-    layout->addWidget(_imageManipulation);
+    layout->addWidget(d->_imageManipulation);
     layout->addWidget(new QLabel("Interval [ms]", this));
-    layout->addWidget(_timeInterval);
+    layout->addWidget(d->_timeInterval);
     layout->addStretch();
 
     settings_widget->setLayout(layout);
-    _dockSettings->setWidget(settings_widget);
-    this->addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, _dockSettings);
+    d->_dockSettings->setWidget(settings_widget);
+    this->addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, d->_dockSettings);
 }

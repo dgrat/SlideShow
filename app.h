@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <QString>
 
 class ImageView;
@@ -21,7 +22,7 @@ public:
 
     //! the application name
     const QString appName() const { return "Slide Show"; }
-    const QString author() const { return "Author:\tDaniel Frenzel\nMail:\tdan.frenzel87@gmail.com"; }
+    const QString author() const { return "Author: Daniel Frenzel\nMail: dan.frenzel87@gmail.com"; }
 
     // Examples ..
     // getLog()
@@ -31,5 +32,5 @@ public:
 
 private:
     class Impl;
-    Impl * const d;
+    std::unique_ptr<Impl> d;
 };

@@ -1,8 +1,31 @@
 #include "image_engine.h"
+
+#include <chrono>
+
 #include <QImageReader>
 #include <QFileInfo>
 #include <QDirIterator>
 #include <QDebug>
+#include <QtSvg/QSvgRenderer>
+#include <QPainter>
+#include <QTimer>
+
+
+namespace {
+    QPixmap svgToPixmap(const QSize &ImageSize, const QString &SvgFile) {
+        QSvgRenderer SvgRenderer(SvgFile, nullptr);
+        QPixmap Image(ImageSize);
+
+        Image.fill(Qt::transparent);
+
+        QPainter p;
+        p.begin(&Image);
+        SvgRenderer.render(&p);
+        p.end();
+
+        return Image;
+    }
+}
 
 // maybe user deleted or added some stuff while running
 void ImageEngine::check_cur_dir_images() {
@@ -62,10 +85,14 @@ void ImageEngine::run() {
             }
         }
 
+        // start cycle timing
+        const auto start_ms = std::chrono::steady_clock::now();
+
         // despite it is a bit slower, I decided to check for changes in the directory in every cycle
         check_cur_dir_images();
         if(_images.size() == 0) {
             emit si_statusMsg("Folder Empty. Choose another..");
+            emit si_curImage(svgToPixmap(QSize(1200,1200), ":/sad.svg"));
             continue;
         }
 
@@ -80,20 +107,34 @@ void ImageEngine::run() {
         _cur_image = _nxt_image;
         _nxt_image++;
 
-        // replaces "msleep(_interval)" without blocking event handling
-        _timer.singleShot(_interval_ms, this, &ImageEngine::sl_newCycle);
-
         // cycle lock
         {
             QMutexLocker locker(&_mutex);
+
+            // end cycle timing
+            const auto stop_ms = std::chrono::steady_clock::now();
+            const auto elaps_ms = std::chrono::duration_cast<std::chrono::milliseconds>(stop_ms-start_ms).count();
+
+            const int res_ms = ((int)_interval_ms - (int)elaps_ms) > 0 ?((int)_interval_ms - (int)elaps_ms) : 0;
+            if(res_ms == 0) {
+                emit si_statusMsg("Warning: cycle interval too low");
+            }
+
+            // replaces "msleep(_interval)" without blocking event handling
+            QTimer::singleShot(res_ms, this, [=](){
+                _waitCond.wakeAll();
+            });
             _waitCond.wait(&_mutex); // released in slot: "sl_newCycle", called by _timer
         }
     }
 }
 
 void ImageEngine::sl_setTime(size_t interv_ms) {
-    QMutexLocker locker(&_mutex);
-    _interval_ms = interv_ms;
+    {
+        QMutexLocker locker(&_mutex);
+        _interval_ms = interv_ms;
+    }
+
     emit si_statusMsg("Changed interval");
 }
 
@@ -123,11 +164,6 @@ void ImageEngine::sl_stop() {
         _pause = false;
         _pauseCond.wakeAll();
     }
-}
-
-void ImageEngine::sl_newCycle() {
-    QMutexLocker locker(&_mutex);
-    _waitCond.wakeAll();
 }
 
 void ImageEngine::sl_pause() {

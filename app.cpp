@@ -1,6 +1,6 @@
 #include "app.h"
 #include "image_view.h"
-#include <memory>
+
 
 namespace {
     App *s_app = nullptr;
@@ -29,6 +29,4 @@ ImageView *App::getGUI() const {
     return d->mainWindow.get();
 }
 
-App::~App() {
-    delete d;
-}
+App::~App() {}
