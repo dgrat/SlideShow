@@ -14,6 +14,8 @@
 #include <QScrollArea>
 #include <QPushButton>
 #include <QLabel>
+#include <QKeyEvent>
+#include <QMessageBox>
 
 
 ImageView::ImageView(QWidget *parent)
@@ -107,6 +109,12 @@ void ImageView::sl_selSearchDir() {
 void ImageView::connectDockSettings() {
     connect(_butStartStop, &QPushButton::pressed, this, &ImageView::sl_createImgEngine);
     connect(_butSearchDir, &QPushButton::pressed, this, &ImageView::sl_selSearchDir);
+}
+
+void ImageView::keyPressEvent( QKeyEvent * event ) {
+    if( event->key() == Qt::Key_F1 ) {
+        QMessageBox::about(this, "Contact", getApp()->author());
+    }
 }
 
 void ImageView::prepareDockSettings() {

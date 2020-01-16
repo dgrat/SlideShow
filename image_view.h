@@ -53,6 +53,9 @@ private slots:
     //! change search path for slide show
     void sl_selSearchDir();
 
+protected:
+    void keyPressEvent( QKeyEvent * event ) override;
+
 public:
     ImageView(QWidget *parent = nullptr);
     ~ImageView();

@@ -21,11 +21,11 @@ public:
 
     //! the application name
     const QString appName() const { return "Slide Show"; }
+    const QString author() const { return "Author:\tDaniel Frenzel\nMail:\tdan.frenzel87@gmail.com"; }
 
     // Examples ..
     // getLog()
     // getDocu()
-    // getAuthor()
     // getSharedMenu()
     // ...
 
