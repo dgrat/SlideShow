@@ -108,17 +108,20 @@ void ImageEngine::sl_setSearchDirectory(const QString &dir) {
 }
 
 void ImageEngine::sl_stop() {
-    _stop = true;
+    {
+        QMutexLocker locker(&_mutex);
+        _waitCond.wakeAll();
+    }
+
+    {
+        QMutexLocker locker(&_mutex);
+        _stop = true;
+    }
 
     {
         QMutexLocker locker(&_mutex);
         _pause = false;
         _pauseCond.wakeAll();
-    }
-
-    {
-        QMutexLocker locker(&_mutex);
-        _waitCond.wakeAll();
     }
 }
 
